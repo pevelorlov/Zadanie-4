@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Сравнение ответов DeepSeek при трёх температурах">
+  <title>DeepSeek Temperature Lab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="ambient ambient-one"></div>
+  <div class="ambient ambient-two"></div>
+
+  <main class="page-shell">
+    <header class="hero compact-hero">
+      <div>
+        <div class="eyebrow"><span class="pulse"></span> TEMPERATURE LAB</div>
+        <h1>Один запрос. <span>Три температуры.</span></h1>
+      </div>
+      <div class="header-tools">
+        <a class="saved-link" href="{{ url_for('saved_runs') }}">Сохранённые запуски</a>
+        <div class="model-chip" title="Модель задаётся переменной DEEPSEEK_MODEL в .env">
+          <span>Модель</span>
+          <strong>{{ model }}</strong>
+        </div>
+      </div>
+    </header>
+
+    <aside class="reasoning-notice" role="note">
+      <strong>Reasoning выключен</strong>
+      <span>DeepSeek игнорирует настройку temperature в режиме Thinking, поэтому все ответы и сравнение выполняются без Reasoning.</span>
+    </aside>
+
+    <form id="solver-form" novalidate>
+      <section class="task-panel glass-panel">
+        <div class="section-heading">
+          <div>
+            <span class="section-index">01</span>
+            <h2>Введите один запрос</h2>
+          </div>
+          <button class="text-button" type="button" id="example-button">Подставить пример</button>
+        </div>
+        <div class="task-workspace">
+          <div class="task-field">
+            <textarea id="task" maxlength="20000" required placeholder="Например: Придумай три необычных концепции кафе для небольшого сибирского города."></textarea>
+            <div class="field-footer">
+              <span>Один и тот же текст будет отправлен три раза</span>
+              <span><b id="task-count">0</b> / 20 000</span>
+            </div>
+          </div>
+          <div class="task-actions">
+            <button class="launch-button" id="launch-button" type="submit">
+              <span class="button-icon">▶</span>
+              <span class="button-label">Запустить 3 температуры</span>
+            </button>
+            <p>Сравнение не запускается автоматически. Оно доступно отдельно у каждой готовой пачки.</p>
+          </div>
+        </div>
+        <p id="form-error" class="form-error" role="alert"></p>
+      </section>
+
+      <section class="methods-section">
+        <div class="section-heading outside-heading">
+          <div>
+            <span class="section-index">02</span>
+            <h2>Настройте температуры</h2>
+          </div>
+          <p>Допустимый диапазон: от 0 до 2</p>
+        </div>
+
+        <div class="method-grid temperature-grid">
+          <article class="method-card accent-blue">
+            <span class="method-number">01</span>
+            <h3>Точный режим</h3>
+            <p>Минимум случайности: ответы обычно стабильнее и строже.</p>
+            <div class="temperature-control">
+              <div class="temperature-readout"><span>temperature</span><output for="temperature-slider-1">0</output></div>
+              <input class="temperature-slider" id="temperature-slider-1" type="range" min="0" max="2" step="0.01" value="0" aria-label="Ползунок первой температуры">
+              <div class="range-scale"><span>0</span><span>2</span></div>
+              <label class="temperature-label" for="temperature-1">Точное значение</label>
+              <input class="temperature-input" id="temperature-1" type="number" min="0" max="2" step="0.01" value="0" required>
+            </div>
+          </article>
+
+          <article class="method-card accent-violet">
+            <span class="method-number">02</span>
+            <h3>Сбалансированный режим</h3>
+            <p>Умеренная вариативность без слишком сильной случайности.</p>
+            <div class="temperature-control">
+              <div class="temperature-readout"><span>temperature</span><output for="temperature-slider-2">0,7</output></div>
+              <input class="temperature-slider" id="temperature-slider-2" type="range" min="0" max="2" step="0.01" value="0.7" aria-label="Ползунок второй температуры">
+              <div class="range-scale"><span>0</span><span>2</span></div>
+              <label class="temperature-label" for="temperature-2">Точное значение</label>
+              <input class="temperature-input" id="temperature-2" type="number" min="0" max="2" step="0.01" value="0.7" required>
+            </div>
+          </article>
+
+          <article class="method-card accent-orange">
+            <span class="method-number">03</span>
+            <h3>Творческий режим</h3>
+            <p>Больше неожиданных формулировок, идей и разнообразия.</p>
+            <div class="temperature-control">
+              <div class="temperature-readout"><span>temperature</span><output for="temperature-slider-3">1,2</output></div>
+              <input class="temperature-slider" id="temperature-slider-3" type="range" min="0" max="2" step="0.01" value="1.2" aria-label="Ползунок третьей температуры">
+              <div class="range-scale"><span>0</span><span>2</span></div>
+              <label class="temperature-label" for="temperature-3">Точное значение</label>
+              <input class="temperature-input" id="temperature-3" type="number" min="0" max="2" step="0.01" value="1.2" required>
+            </div>
+          </article>
+        </div>
+      </section>
+    </form>
+
+    <section id="results-section" class="results-section" hidden>
+      <div class="section-heading outside-heading">
+        <div>
+          <span class="section-index">03</span>
+          <h2>История запусков</h2>
+        </div>
+        <p>Новые пачки появляются сверху</p>
+      </div>
+      <div id="run-history" class="run-history"></div>
+    </section>
+  </main>
+
+  <template id="run-template">
+    <article class="run-batch glass-panel">
+      <header class="batch-header">
+        <div>
+          <span class="batch-kicker">ПАЧКА ИЗ ТРЁХ ОТВЕТОВ</span>
+          <h2 class="batch-title"></h2>
+          <p class="batch-task"></p>
+        </div>
+        <div class="batch-actions">
+          <span class="batch-progress">Выполняется: 0 из 3</span>
+          <button class="secondary-button compare-button" type="button" disabled>Сравнить три ответа</button>
+          <button class="secondary-button save-button" type="button" disabled>Сохранить пачку</button>
+        </div>
+      </header>
+      <div class="result-grid"></div>
+      <p class="batch-message" role="status"></p>
+      <article class="comparison-card" hidden>
+        <div class="comparison-heading">
+          <div>
+            <span class="comparison-kicker">РУЧНОЙ АНАЛИЗ</span>
+            <h2>Сравнение ответов</h2>
+          </div>
+          <span class="judge-badge">temperature = 0 · Reasoning выключен</span>
+        </div>
+        <div class="comparison-status"></div>
+        <div class="comparison-answer answer-text"></div>
+        <p class="comparison-note">Оценка выполнена моделью, а не эталонным проверяющим. Фактические утверждения следует проверять отдельно.</p>
+      </article>
+    </article>
+  </template>
+
+  <template id="result-template">
+    <article class="result-card">
+      <div class="result-header">
+        <div>
+          <span class="result-number"></span>
+          <h3 class="result-title"></h3>
+        </div>
+        <span class="status-badge">Ожидание</span>
+      </div>
+      <div class="loading-state">
+        <span class="loader"></span>
+        <p>DeepSeek формирует ответ…</p>
+      </div>
+      <div class="result-content" hidden>
+        <div class="answer-text"></div>
+        <div class="result-meta"></div>
+        <button class="copy-button" type="button">Копировать ответ</button>
+      </div>
+      <div class="error-state" hidden></div>
+    </article>
+  </template>
+
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>
